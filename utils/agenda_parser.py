@@ -130,6 +130,13 @@ def parse_agenda_text(raw_text: str) -> List[Dict]:
     """
     Parse plain text agenda (fallback or manual entry).
 
+    For manually-entered text we trust the user has typed real sessions,
+    so we skip the aggressive keyword filtering (which blocks words like
+    "welcome", "open", "introduction" etc.) and only enforce:
+      1. Non-empty line
+      2. Cleaned title is at least MIN_TITLE_LENGTH characters
+      3. No duplicate titles
+
     Args:
         raw_text: Newline-separated agenda text.
 
@@ -142,10 +149,15 @@ def parse_agenda_text(raw_text: str) -> List[Dict]:
 
     for line in raw_text.splitlines():
         text = line.strip()
-        if not text or _is_skip_line(text):
+        if not text:
             continue
+        # Clean the title FIRST (strip session prefixes, bullets, etc.)
         cleaned = _clean_title(text)
-        if len(cleaned) < MIN_TITLE_LENGTH:
+        # If cleaning removed everything, fall back to the original stripped text
+        if not cleaned:
+            cleaned = text
+        # Skip very short titles (likely stray characters or numbers)
+        if len(cleaned) < 3:
             continue
         lower_cleaned = cleaned.lower()
         if lower_cleaned not in seen_titles:
