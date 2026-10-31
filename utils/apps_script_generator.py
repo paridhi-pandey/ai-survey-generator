@@ -10,8 +10,17 @@ RATING_OPTIONS = ["Excellent", "Very Good", "Good", "Fair", "Poor"]
 
 
 def _escape_js_string(s: str) -> str:
-    """Escape a string for safe inclusion in JavaScript."""
-    return s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n").replace("\r", "")
+    """Escape a string for safe inclusion in a JavaScript double-quoted string."""
+    # Convert to str in case of None / numeric values
+    s = str(s) if s is not None else ""
+    s = s.replace("\\", "\\\\")   # backslash first
+    s = s.replace('"', '\\"')     # double quotes
+    s = s.replace("'", "\\'")     # single quotes (safe inside "" but escape anyway)
+    s = s.replace("\n", "\\n")    # newlines
+    s = s.replace("\r", "")       # carriage returns
+    s = s.replace("\t", "\\t")    # tabs
+    s = s.replace("`", "\\`")     # backticks
+    return s
 
 
 def generate_apps_script(survey_rows: List[Dict], form_title: str = "Workshop Feedback Survey") -> str:
@@ -39,7 +48,7 @@ def generate_apps_script(survey_rows: List[Dict], form_title: str = "Workshop Fe
     lines.append(' * 3. Paste this entire script')
     lines.append(' * 4. Click Run > createSurveyForm')
     lines.append(' * 5. Authorize with your Google account')
-    lines.append(' * 6. The form URL will be logged in Execution Log')
+    lines.append(' * 6. The form URL will appear in the Execution Log')
     lines.append(' */')
     lines.append('')
     lines.append('function createSurveyForm() {')
@@ -53,51 +62,59 @@ def generate_apps_script(survey_rows: List[Dict], form_title: str = "Workshop Fe
     current_section = None
 
     for row in survey_rows:
-        section = row.get("section", "")
-        question = _escape_js_string(str(row.get("question", "")))
-        qtype = row.get("question_type", "Short Answer")
-        options_str = row.get("options", "")
+        section  = str(row.get("section", "") or "")
+        question = _escape_js_string(row.get("question", "") or "")
+        qtype    = str(row.get("question_type", "Short Answer") or "Short Answer")
+        options_raw = row.get("options", "") or ""
         required = row.get("required", "No") == "Yes"
+        req_js   = "true" if required else "false"
 
         # Add section header when section changes
         if section != current_section:
             current_section = section
             safe_section = _escape_js_string(section)
-            lines.append(f'  // ─── Section: {section} ───')
+            lines.append(f'  // --- Section: {section} ---')
             lines.append(f'  form.addSectionHeaderItem().setTitle("{safe_section}");')
             lines.append('')
 
         if qtype == "Short Answer":
             lines.append(f'  form.addTextItem()')
             lines.append(f'    .setTitle("{question}")')
-            lines.append(f'    .setRequired({str(required).lower()});')
+            lines.append(f'    .setRequired({req_js});')
 
         elif qtype == "Paragraph":
             lines.append(f'  form.addParagraphTextItem()')
             lines.append(f'    .setTitle("{question}")')
-            lines.append(f'    .setRequired({str(required).lower()});')
+            lines.append(f'    .setRequired({req_js});')
 
         elif qtype == "Multiple Choice":
-            options = [o.strip() for o in options_str.split("|") if o.strip()] if options_str else RATING_OPTIONS
+            # options_raw may be a string like "A | B | C" or already a list
+            if isinstance(options_raw, list):
+                options = [str(o).strip() for o in options_raw if str(o).strip()]
+            else:
+                options = [o.strip() for o in str(options_raw).split("|") if o.strip()]
+            if not options:
+                options = RATING_OPTIONS
             options_js = ", ".join(f'"{_escape_js_string(o)}"' for o in options)
             lines.append(f'  form.addMultipleChoiceItem()')
             lines.append(f'    .setTitle("{question}")')
             lines.append(f'    .setChoiceValues([{options_js}])')
-            lines.append(f'    .setRequired({str(required).lower()});')
+            lines.append(f'    .setRequired({req_js});')
+
+        else:
+            # Fallback: treat unknown types as short answer
+            lines.append(f'  form.addTextItem()')
+            lines.append(f'    .setTitle("{question}")')
+            lines.append(f'    .setRequired({req_js});')
 
         lines.append('')
 
+    lines.append('  // Log the form URLs to the Execution Log')
     lines.append('  var formUrl = form.getPublishedUrl();')
     lines.append('  var editUrl = form.getEditUrl();')
     lines.append('  Logger.log("Form created successfully!");')
     lines.append('  Logger.log("Published URL: " + formUrl);')
     lines.append('  Logger.log("Edit URL: " + editUrl);')
-    lines.append('')
-    lines.append('  // Optionally show in a dialog box')
-    lines.append('  var ui = SpreadsheetApp.getUi ? SpreadsheetApp.getUi() : null;')
-    lines.append('  if (ui) {')
-    lines.append('    ui.alert("Form Created!", "Edit URL:\\n" + editUrl, ui.ButtonSet.OK);')
-    lines.append('  }')
     lines.append('}')
 
     return "\n".join(lines)
