@@ -764,7 +764,7 @@ with st.sidebar:
     <div style="color:#475569;font-size:0.72rem;text-align:center;line-height:1.6;">
         AI Survey Generator<br>
         Built with Streamlit + Gemini<br>
-        <a href="https://github.com/mohit-dhoundiyal/AI-Survey-Generator" 
+        <a href="https://github.com/paridhi-pandey/ai-survey-generator" 
            style="color:#6366f1;">GitHub Repository ↗</a>
     </div>
     """, unsafe_allow_html=True)
@@ -1543,6 +1543,6 @@ st.markdown("""
     🤖 AI Survey Generator &nbsp;|&nbsp; Built with 
     <a href="https://streamlit.io" style="color:#6366f1;">Streamlit</a> + 
     <a href="https://ai.google.dev/" style="color:#6366f1;">Gemini AI</a> &nbsp;|&nbsp;
-    <a href="https://github.com/mohit-dhoundiyal/AI-Survey-Generator" style="color:#6366f1;">View on GitHub ↗</a>
+    <a href="https://github.com/paridhi-pandey/ai-survey-generator" style="color:#6366f1;">View on GitHub ↗</a>
 </div>
 """, unsafe_allow_html=True)
